@@ -1,8 +1,7 @@
 # =============================================================================
 # Order Service image
 #
-# The build context is ./services (see docker-compose.yml), so every path below
-# is relative to that directory:
+# The build context is ./services.
 #   order/app                    FastAPI application
 #   order/requirements/*.txt     pinned lock files (hashes included)
 #   shared/                      shared settings, broker and middleware helpers
@@ -19,8 +18,6 @@ ENV PIP_NO_CACHE_DIR=1 \
 
 WORKDIR /build
 
-# Only needed when a dependency has no prebuilt wheel; kept so the build does
-# not fail on a source-only release.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential libpq-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -40,8 +37,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
     PATH="/opt/venv/bin:$PATH"
 
-# curl backs the HEALTHCHECK below. asyncpg and psycopg2-binary ship their own
-# client libraries, so no libpq or build toolchain is needed at runtime.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
@@ -51,14 +46,9 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY --from=builder --chown=appuser:appuser /opt/venv /opt/venv
-
-# Preserve the "order.<module>" and "shared.<module>" import paths that the
-# application and mypy both rely on.
 COPY --chown=appuser:appuser shared/ /app/shared/
 COPY --chown=appuser:appuser order/__init__.py /app/order/__init__.py
 COPY --chown=appuser:appuser order/app/ /app/order/app/
-# Migrations ship with the image so schema changes are applied on every start
-# instead of relying on a developer remembering to run them.
 COPY --chown=appuser:appuser order/alembic.ini /app/alembic.ini
 COPY --chown=appuser:appuser order/alembic/ /app/alembic/
 

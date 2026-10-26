@@ -100,10 +100,6 @@ audit_requirements() {
         return 0
     fi
 
-    # Execute the installed binary directly; do not use uv run.
-    # set -e aborts on a failing command substitution, so the status has to be
-    # captured in a guarded assignment - otherwise a detected vulnerability
-    # kills the run before the report below is ever printed.
     audit_exit_code=0
     audit_output="$("$AUDIT_BIN" --strict --format markdown 2>&1)" || audit_exit_code=$?
     echo "$audit_output" | while IFS= read -r line; do

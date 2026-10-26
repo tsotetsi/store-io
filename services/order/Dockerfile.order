@@ -1,0 +1,74 @@
+# =============================================================================
+# Order Service image
+#
+# The build context is ./services (see docker-compose.yml), so every path below
+# is relative to that directory:
+#   order/app                    FastAPI application
+#   order/requirements/*.txt     pinned lock files (hashes included)
+#   shared/                      shared settings, broker and middleware helpers
+#
+# Build directly with:
+#   docker build -f services/order/Dockerfile.order services
+# =============================================================================
+
+# --- Stage 1: build the virtualenv -------------------------------------------
+FROM python:3.14-slim AS builder
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /build
+
+# Only needed when a dependency has no prebuilt wheel; kept so the build does
+# not fail on a source-only release.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Production lock file only - no dev/test tooling in the image.
+COPY order/requirements/production.txt ./requirements.txt
+
+# Hashes are baked into the lock file, so this install is reproducible.
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --require-hashes -r requirements.txt
+
+# --- Stage 2: runtime --------------------------------------------------------
+FROM python:3.14-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    PATH="/opt/venv/bin:$PATH"
+
+# curl backs the HEALTHCHECK below. asyncpg and psycopg2-binary ship their own
+# client libraries, so no libpq or build toolchain is needed at runtime.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 appuser \
+    && useradd --uid 10001 --gid appuser --no-create-home --shell /usr/sbin/nologin appuser
+
+WORKDIR /app
+
+COPY --from=builder --chown=appuser:appuser /opt/venv /opt/venv
+
+# Preserve the "order.<module>" and "shared.<module>" import paths that the
+# application and mypy both rely on.
+COPY --chown=appuser:appuser shared/ /app/shared/
+COPY --chown=appuser:appuser order/__init__.py /app/order/__init__.py
+COPY --chown=appuser:appuser order/app/ /app/order/app/
+# Migrations ship with the image so schema changes are applied on every start
+# instead of relying on a developer remembering to run them.
+COPY --chown=appuser:appuser order/alembic.ini /app/alembic.ini
+COPY --chown=appuser:appuser order/alembic/ /app/alembic/
+
+USER appuser
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+    CMD curl -fsS http://localhost:8000/health || exit 1
+
+# Apply pending migrations, then hand over to the app. The series is idempotent,
+# so restarts are cheap and a fresh database is provisioned on first boot.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn order.app.main:app --host 0.0.0.0 --port 8000"]

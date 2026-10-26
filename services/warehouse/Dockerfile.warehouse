@@ -1,0 +1,62 @@
+# =============================================================================
+# Warehouse Service image.
+#
+# The build context is ./services.
+#   warehouse/app                FastAPI application
+#   warehouse/requirements/*.txt pinned lock files (hashes included)
+#   shared/                      shared settings, broker and middleware helpers
+#
+# Build directly with:
+#   docker build -f services/warehouse/Dockerfile.warehouse services
+# =============================================================================
+
+# --- Stage 1: build the virtualenv -------------------------------------------
+FROM python:3.14-slim AS builder
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Production lock file only - no dev/test tooling in the image.
+COPY warehouse/requirements/production.txt ./requirements.txt
+
+# Hashes are baked into the lock file, so this install is reproducible.
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --require-hashes -r requirements.txt
+
+# --- Stage 2: runtime --------------------------------------------------------
+FROM python:3.14-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    PATH="/opt/venv/bin:$PATH"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 appuser \
+    && useradd --uid 10001 --gid appuser --no-create-home --shell /usr/sbin/nologin appuser
+
+WORKDIR /app
+
+COPY --from=builder --chown=appuser:appuser /opt/venv /opt/venv
+COPY --chown=appuser:appuser shared/ /app/shared/
+COPY --chown=appuser:appuser warehouse/__init__.py /app/warehouse/__init__.py
+COPY --chown=appuser:appuser warehouse/app/ /app/warehouse/app/
+COPY --chown=appuser:appuser warehouse/alembic.ini /app/alembic.ini
+COPY --chown=appuser:appuser warehouse/alembic/ /app/alembic/
+
+USER appuser
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+    CMD curl -fsS http://localhost:8000/health || exit 1
+
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn warehouse.app.main:app --host 0.0.0.0 --port 8000"]

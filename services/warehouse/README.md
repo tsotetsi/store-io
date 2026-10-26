@@ -14,12 +14,9 @@ under a row lock, and reports back with `stock.allocated` / `stock.failed`.
 
 If the service is stopped, its durable queue keeps the `order.placed` messages.
 Starting it again drains the backlog and the affected orders move from `PENDING`
-to `CONFIRMED` — this is the catch-up demonstration.
+to `CONFIRMED`.
 
-Schema changes are Alembic migrations, applied by the container entrypoint
-(`alembic upgrade head && uvicorn ...`).
-
-## Install Dependencies
+## Installing Dependencies
 
 ### Prerequisites
 
@@ -33,7 +30,7 @@ To develop this service locally, you need to have the following installed:
 You can install warehouse service requirements by running the following commands in the `services/warehouse` directory:
 
 ```bash
-uv sync               # installs base + dev requirements into .venv
+uv sync               # installs base + development requirements into .venv
 ```
 
 ### Service-level Makefile targets

@@ -1,0 +1,230 @@
+# ==============================================
+# .aiignore - AI Context Optimization File
+# Project: Store-IO - Python(FastAPI) React(Maybe for visualization)
+# Purpose: Ignore sensitive files, build artifacts, and large generated files
+# to save tokens and keep AI context windows clean
+# ==============================================
+
+# ==============================================
+# 1. SENSITIVE SECRETS & CREDENTIALS
+# ==============================================
+# Environment files
+**/.env
+**/.env.*
+**/.envrc
+
+# Secrets and credentials directories
+**/.secrets/
+**/.ssh/
+**/.zshrc
+**/secrets/
+**/credentials/
+**/keys/
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.crt
+**/*.cer
+**/*.keystore
+**/*.jks
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase.json
+**/serviceAccountKey.json
+
+# Configuration files that might contain secrets
+**/settings_local.py
+**/local_settings.py
+**/dev_settings.py
+**/prod_settings.py
+
+# ==============================================
+# 2. NODE.JS & JAVASCRIPT BUILD ARTIFACTS
+# ==============================================
+# Dependencies
+**/node_modules/
+**/npm_modules/
+**/package-lock.json
+**/pnpm-lock.yaml
+**/bun.lockb
+
+# ==============================================
+# 3. PYTHON & BACKEND SERVICES BUILD ARTIFACTS (FastAPI)
+# ==============================================
+# Virtual environments
+**/.venv/
+**/.venv_test
+**/venv/
+**/venv_test
+**/env/
+**/env_test
+**/.env/
+**/.env_test/
+**/virtualenv/
+**/virtualenv_test/
+**/venv*/
+**/venv_test*/
+**/.venv*/
+**/.venv_test/
+**/env*/
+**/env_test*/
+
+# Python bytecode & cache
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.tox/
+**/.nox/
+**/site-packages/
+
+# FastAPI/Python build artifacts
+**/.uv/
+**/pip-wheel-metadata/
+**/dist/
+**/build/
+**/*.egg-info/
+**/*.egg
+**/*.whl
+**/requirements-lock.txt
+**/pip-lock.json
+
+# Coverage reports
+**/.coverage
+**/.coverage.*
+**/htmlcov/
+**/coverage.xml
+**/coverage/
+
+# ==============================================
+# 4. LOG FILES
+# ==============================================
+**/*.log
+**/logs/
+**/log/
+**/*.log.*
+**/npm-debug.log*
+**/uvicorn.log*
+**/gunicorn.log*
+**/access.log
+**/error.log
+**/debug.log
+
+# ==============================================
+# 5. LARGE GENERATED & TEMPORARY FILES
+# ==============================================
+# Temporary files
+**/*.tmp
+**/*.temp
+**/tmp/
+**/temp/
+**/temp_files/
+**/*.swp
+**/*.swo
+**/*~
+**/.*.swp
+**/.DS_Store
+**/Thumbs.db
+**/desktop.ini
+
+# Cache directories
+**/.cache/
+**/cache/
+**/.parcel-cache/
+**/.webpack-cache/
+**/.eslintcache
+**/.tsbuildinfo
+**/*.tsbuildinfo
+
+# ==============================================
+# 6. IDE & DEVELOPER TOOLS
+# ==============================================
+**/.vscode/
+**/.idea/
+**/.vs/
+**/*.swiftpm/
+**/.fleet/
+**/.zed/
+**/.sublime-*
+**/*.code-workspace
+**/.marscode/
+**/.claude/
+**/.cursor/
+**/.windsurf/
+
+# ==============================================
+# 7. DOCKER & CONTAINER ARTIFACTS
+# ==============================================
+**/.docker/
+**/docker-compose.override.yml
+**/docker-compose.local.yml
+**/*.tar
+**/*.tar.gz
+**/*.zip
+**/*.rar
+**/*.7z
+
+# ==============================================
+# 8. GIT & VERSION CONTROL
+# ==============================================
+**/.git/
+**/.hg/
+**/.svn/
+**/.bzr/
+**/.gitignore
+**/.gitattributes
+**/.gitmodules
+**/*.orig
+**/*.rej
+
+# ==============================================
+# 9. DOCUMENTATION & REPORTS (Large Generated Ones)
+# ==============================================
+**/node_modules/
+**/venv/
+**/site-packages/
+**/build/
+**/dist/
+**/htmlcov/
+**/.pytest_cache/
+**/coverage/
+**/docs/build/
+**/docs/_build/
+**/site/
+**/public/
+
+# ==============================================
+# 10. DATABASE & LARGE DATA FILES
+# ==============================================
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/*.db-shm
+**/*.db-wal
+**/*.csv
+**/*.jsonl
+**/*.shp
+**/*.shx
+**/*.dbf
+**/*.prj
+**/*.gpkg
+**/*.dump
+**/*.backup
+**/*.sql
+**/*.sql.gz
+
+# ==============================================
+# 11. FRONTEND/REACT SPECIFIC
+# ==============================================
+# Vite
+**/dist/
+**/dist-ssr/
+**/.vite/
+
+# ==============================================
+# END OF .aiignore
+# ==============================================

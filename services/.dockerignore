@@ -1,0 +1,10 @@
+# The image only needs order/ and shared/.
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.env
+**/tests/

@@ -1,0 +1,75 @@
+# =============================================================================
+# Store-IO - pre-commit hooks
+# =============================================================================
+# Install once per clone:
+#   uv tool install pre-commit   # or: pipx install pre-commit
+#   pre-commit install
+#
+# Run manually against the whole repository:
+#   pre-commit run --all-files
+#
+# Revs are pinned; bump them with `pre-commit autoupdate`.
+# =============================================================================
+
+fail_fast: false
+minimum_pre_commit_version: "3.5.0"
+
+repos:
+  # --- General file hygiene ------------------------------------------------ #
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        # assets/logo.svg is ~1.1 MB, so keep the limit above it while still
+        # catching accidental dumps, wheels and datasets.
+        args: [--maxkb=2048]
+      - id: detect-private-key
+      - id: debug-statements
+        # Catches leftover pdb/breakpoint() calls before they reach a commit.
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+
+  # --- Python linting & formatting ---------------------------------------- #
+  # Ruff is configured in ruff.toml (shared by all services).
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.2
+    hooks:
+      - id: ruff
+        name: ruff (lint)
+        args: [--fix]
+      - id: ruff-format
+        name: ruff (format)
+
+  # --- Static type checking ----------------------------------------------- #
+  # Checked as one tree so cross-package imports (shared/order/warehouse) are
+  # resolved; the service dependencies are installed into the hook environment.
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.4.0
+    hooks:
+      - id: mypy
+        name: mypy (type check)
+        args: [--config-file=mypy.ini, services]
+        pass_filenames: false
+        additional_dependencies:
+          - fastapi==0.162.0
+          - pydantic-settings==2.16.1
+          - sqlalchemy[asyncio]==2.1.6
+          - structlog==26.1.0
+          - aio-pika==10.1.1
+          - redis==8.1.0
+          - asyncpg==0.32.0
+          # Needed to type-check the Alembic migration environment.
+          - alembic==1.20.1
+          # Used by the order service (warehouse price lookups) and the
+          # control service (Docker API + upstream proxies).
+          - httpx==0.28.1

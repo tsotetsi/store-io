@@ -1,0 +1,309 @@
+# =============================================================================
+# Store-IO - Docker Compose
+# =============================================================================
+
+name: store-io
+
+networks:
+  store-io-network:
+    driver: bridge
+    name: store-io-network
+
+volumes:
+  postgres_order_service_data:
+    driver: local
+    name: store_io_postgres_order_service_data
+
+  postgres_warehouse_service_data:
+    driver: local
+    name: store_io_postgres_warehouse_service_data
+
+  redis_data:
+    driver: local
+    name: store_io_redis_data
+
+  rabbitmq_data:
+    driver: local
+    name: store_io_rabbitmq_data
+
+secrets:
+  order_postgres_user:
+    file: ./.secrets/postgres/order-service/postgres_user
+  order_postgres_password:
+    file: ./.secrets/postgres/order-service/postgres_password
+  warehouse_postgres_user:
+    file: ./.secrets/postgres/warehouse-service/postgres_user
+  warehouse_postgres_password:
+    file: ./.secrets/postgres/warehouse-service/postgres_password
+  rabbitmq_user:
+    file: ./.secrets/rabbitmq/rabbitmq_user
+  rabbitmq_password:
+    file: ./.secrets/rabbitmq/rabbitmq_password
+  redis_password:
+    file: ./.secrets/redis/redis_password
+
+services:
+  # ===========================================================================
+  # PostgreSQL 18 - Order Service (primary, read/write)
+  # ===========================================================================
+  order-db-service:
+    image: postgres:18.6-alpine
+    container_name: order-db-service
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/order_postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/order_postgres_password
+      POSTGRES_DB: order_service_db
+    secrets:
+      - order_postgres_user
+      - order_postgres_password
+    ports:
+      - "${ORDER_DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_order_service_data:/var/lib/postgresql
+    networks:
+      - store-io-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$(cat /run/secrets/order_postgres_user)\" -d order_service_db -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ===========================================================================
+  # PostgreSQL 18 - Warehouse Service (stock reservations)
+  # ===========================================================================
+  warehouse-db-service:
+    image: postgres:18.6-alpine
+    container_name: warehouse-db-service
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/warehouse_postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/warehouse_postgres_password
+      POSTGRES_DB: warehouse_service_db
+    secrets:
+      - warehouse_postgres_user
+      - warehouse_postgres_password
+    ports:
+      - "${WAREHOUSE_DB_PORT:-5433}:5432"
+    volumes:
+      - postgres_warehouse_service_data:/var/lib/postgresql
+    networks:
+      - store-io-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$(cat /run/secrets/warehouse_postgres_user)\" -d warehouse_service_db -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ===========================================================================
+  # Redis 8 - idempotency tokens and cache
+  # ===========================================================================
+  redis-service:
+    image: redis:8.2.5-alpine
+    container_name: redis-service
+    restart: unless-stopped
+    # Redis holds idempotency keys, so it is not left open on the host network:
+    # the password is read from the mounted secret before the server starts.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        exec redis-server --appendonly yes --appendfsync everysec \
+          --requirepass "$$(cat /run/secrets/redis_password)"
+    secrets:
+      - redis_password
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - store-io-network
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - redis-cli --no-auth-warning -a "$$(cat /run/secrets/redis_password)" ping | grep -q PONG
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ===========================================================================
+  # RabbitMQ 4 - inter-service event broker (management UI included)
+  # ===========================================================================
+  rabbitmq-service:
+    image: rabbitmq:4.4.0-management-alpine
+    container_name: rabbitmq-service
+    hostname: rabbitmq-service
+    restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export RABBITMQ_DEFAULT_USER="$$(cat /run/secrets/rabbitmq_user)"
+        export RABBITMQ_DEFAULT_PASS="$$(cat /run/secrets/rabbitmq_password)"
+        exec docker-entrypoint.sh rabbitmq-server
+    secrets:
+      - rabbitmq_user
+      - rabbitmq_password
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - store-io-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ===========================================================================
+  # Order Service - FastAPI intake API (order events + idempotency)
+  # ===========================================================================
+  order-service:
+    build:
+      context: ./services
+      dockerfile: order/Dockerfile.order
+    container_name: order-service
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ORDER_POSTGRES_HOST: order-db-service
+      ORDER_POSTGRES_PORT: 5432
+      ORDER_POSTGRES_DB: order_service_db
+      ORDER_POSTGRES_USER_FILE: /run/secrets/order_postgres_user
+      ORDER_POSTGRES_PASSWORD_FILE: /run/secrets/order_postgres_password
+      REDIS_HOST: redis-service
+      REDIS_PORT: 6379
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+      RABBITMQ_HOST: rabbitmq-service
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER_FILE: /run/secrets/rabbitmq_user
+      RABBITMQ_PASSWORD_FILE: /run/secrets/rabbitmq_password
+      # Live price lookups use the internal service name, never the host port.
+      WAREHOUSE_SERVICE_URL: http://warehouse-service:8000
+      WAREHOUSE_TIMEOUT_SECONDS: ${WAREHOUSE_TIMEOUT_SECONDS:-2.0}
+      ENABLE_GLITCH_SIMULATION: ${ENABLE_GLITCH_SIMULATION:-false}
+      GLITCH_PROBABILITY: ${GLITCH_PROBABILITY:-0.2}
+    secrets:
+      - order_postgres_user
+      - order_postgres_password
+      - rabbitmq_user
+      - rabbitmq_password
+      - redis_password
+    ports:
+      - "${ORDER_SERVICE_PORT:-8000}:8000"
+    depends_on:
+      order-db-service:
+        condition: service_healthy
+      redis-service:
+        condition: service_healthy
+      rabbitmq-service:
+        condition: service_healthy
+    networks:
+      - store-io-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  # ===========================================================================
+  # Warehouse Service - FastAPI inventory API (stock allocation)
+  # ===========================================================================
+  warehouse-service:
+    build:
+      context: ./services
+      dockerfile: warehouse/Dockerfile.warehouse
+    container_name: warehouse-service
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      WAREHOUSE_POSTGRES_HOST: warehouse-db-service
+      WAREHOUSE_POSTGRES_PORT: 5432
+      WAREHOUSE_POSTGRES_DB: warehouse_service_db
+      WAREHOUSE_POSTGRES_USER_FILE: /run/secrets/warehouse_postgres_user
+      WAREHOUSE_POSTGRES_PASSWORD_FILE: /run/secrets/warehouse_postgres_password
+      RABBITMQ_HOST: rabbitmq-service
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER_FILE: /run/secrets/rabbitmq_user
+      RABBITMQ_PASSWORD_FILE: /run/secrets/rabbitmq_password
+      ENABLE_GLITCH_SIMULATION: ${ENABLE_GLITCH_SIMULATION:-false}
+      GLITCH_PROBABILITY: ${GLITCH_PROBABILITY:-0.2}
+    secrets:
+      - warehouse_postgres_user
+      - warehouse_postgres_password
+      - rabbitmq_user
+      - rabbitmq_password
+    ports:
+      - "${WAREHOUSE_SERVICE_PORT:-8001}:8000"
+    depends_on:
+      warehouse-db-service:
+        condition: service_healthy
+      rabbitmq-service:
+        condition: service_healthy
+    networks:
+      - store-io-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  # ===========================================================================
+  # Control Service - local operations API for the dashboard
+  # ===========================================================================
+  control-service:
+    build:
+      context: ./services/control
+      dockerfile: Dockerfile.control
+    container_name: control-service
+    restart: unless-stopped
+    environment:
+      COMPOSE_PROJECT_NAME: store-io
+      DOCKER_SOCKET: /var/run/docker.sock
+      ORDER_SERVICE_URL: http://order-service:8000
+      WAREHOUSE_SERVICE_URL: http://warehouse-service:8000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "127.0.0.1:${CONTROL_SERVICE_PORT:-8010}:8010"
+    networks:
+      - store-io-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8010/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # ===========================================================================
+  # Dashboard - React observability UI (static build served by nginx)
+  # ===========================================================================
+  dashboard-service:
+    build:
+      context: ./services/dashboard
+      dockerfile: Dockerfile.dashboard
+    container_name: dashboard-service
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_PORT:-5173}:80"
+    depends_on:
+      control-service:
+        condition: service_healthy
+    networks:
+      - store-io-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s

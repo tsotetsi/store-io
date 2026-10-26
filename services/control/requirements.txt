@@ -1,0 +1,8 @@
+# Control Service (local developer tooling).
+#
+# This service is not part of the order/stock runtime: it is the small operations
+# API the dashboard talks to. It only needs FastAPI, an HTTP client (Docker Engine to simulate brief requirements. 
+fastapi==0.162.0
+uvicorn==0.54.0
+httpx==0.28.1
+structlog==26.1.0

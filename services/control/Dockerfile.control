@@ -1,0 +1,36 @@
+# =============================================================================
+# Control Service image (dashboard operations API)
+#
+# Build context is ./services/control:
+#   docker build -f services/control/Dockerfile.control services/control
+#
+# The container talks to the Docker Engine API over the mounted unix socket, so
+# it runs as root by design (socket access is root-equivalent). It is a local
+# developer tool and is bound to 127.0.0.1 in docker-compose.yml.
+# =============================================================================
+
+FROM python:3.14-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt ./requirements.txt
+RUN pip install -r requirements.txt
+
+COPY app/ /app/app/
+
+EXPOSE 8010
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -fsS http://localhost:8010/api/health || exit 1
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8010"]

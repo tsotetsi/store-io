@@ -1,4 +1,4 @@
-# Order Service
+# Order Service.
 
 Accepts order intents, prices them against the Warehouse Service, stores them in
 PostgreSQL and publishes `order.placed` for stock allocation.
@@ -22,7 +22,7 @@ Prices are frozen per line item at creation time (`unit_price_cents`,
 `line_total_cents`, `total_cents`). If the warehouse is briefly unreachable, the
 last known price is used and the order records `pricing_source="cached"`.
 
-Schema changes are Alembic migrations, applied by the container entrypoint
+Schema changes are Alembic migrations, applied by the container entrypoint.
 (`alembic upgrade head && uvicorn ...`).
 
 ## Install Dependencies
@@ -39,7 +39,7 @@ To develop this service locally, you need to have the following installed:
 You can install order service requirements by running the following commands in the `services/order` directory:
 
 ```bash
-uv sync               # installs base + dev requirements into .venv
+uv sync               # installs base + development requirements into .venv
 ```
 
 ### Service-level Makefile targets

@@ -3,10 +3,6 @@
 #
 # Build context is ./services/control:
 #   docker build -f services/control/Dockerfile.control services/control
-#
-# The container talks to the Docker Engine API over the mounted unix socket, so
-# it runs as root by design (socket access is root-equivalent). It is a local
-# developer tool and is bound to 127.0.0.1 in docker-compose.yml.
 # =============================================================================
 
 FROM python:3.14-slim AS runtime

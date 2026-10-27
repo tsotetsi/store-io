@@ -1,9 +1,3 @@
-"""Pure helpers for order intake.
-
-Keeping reference resolution and intent comparison free of I/O makes them cheap
-to unit test and makes the idempotency rules explicit in one place.
-"""
-
 import hashlib
 import uuid
 from typing import Any

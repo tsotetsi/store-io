@@ -10,8 +10,6 @@ from shared.config import PROJECT_ROOT, SharedSettings, resolve_secret
 
 class WarehouseSettings(SharedSettings):
     """
-    Dedicated Warehouse Settings.
-
     Inherits the shared application/Redis/RabbitMQ settings and adds the
     Warehouse Service PostgreSQL connection details. Credentials are read from
     the files under .secrets/postgres/warehouse-service/ (or /run/secrets/ in

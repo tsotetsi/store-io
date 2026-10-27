@@ -12,8 +12,6 @@ PRE_COMMIT ?= pre-commit
 RUFF_VERSION ?= 0.17.2
 RUFF ?= uvx ruff@$(RUFF_VERSION)
 
-# Scripts run against the published host ports with throwaway environments, so
-# nobody has to install httpx/aio-pika into their system Python.
 DEMO_PY ?= uv run --with httpx==0.28.1 --no-project python
 EVENTS_PY ?= uv run --with aio-pika==10.1.1 --no-project python
 
@@ -21,8 +19,6 @@ EVENTS_PY ?= uv run --with aio-pika==10.1.1 --no-project python
 # Docker Compose service names (must match docker-compose.yml).
 SERVICES := warehouse-service order-service
 
-# Service directory mapping: compose-service-name -> pipeline-stage-directory
-# Only used for delegating update/audit into the correct services/<name> folder.
 SERVICE_DIR_order-service    := services/order
 SERVICE_DIR_warehouse-service := services/warehouse
 
@@ -102,13 +98,13 @@ test: ## Run the unit test suite with pytest (no Docker required).
 # 1. Global Multi-Service Commands (run against both services)
 # =============================================================================
 
-## build         — Build Docker images for all services (root-level docker compose).
+## build         - Build Docker images for all services (root-level docker compose).
 build: build-warehouse-service build-order-service
 
-## build-fast    — Build all service images in parallel. Usage: make -j build-fast
+## build-fast    - Build all service images in parallel. Usage: make -j build-fast
 build-fast: build-warehouse-service build-order-service
 
-## update        — Update requirements + security scan in every service directory.
+## update        - Update requirements + security scan in every service directory.
 update:
 	@printf "$(YELLOW)🔄 Updating all services...$(NC)\n"
 	@$(foreach svc,$(SERVICES), \
@@ -117,7 +113,7 @@ update:
 	)
 	@printf "\n$(GREEN)✅ All services updated successfully.$(NC)\n"
 
-## audit         — Audit Python dependencies in every service directory.
+## audit         - Audit Python dependencies in every service directory.
 audit:
 	@printf "$(YELLOW)🔒 Auditing all services...$(NC)\n"
 	@$(foreach svc,$(SERVICES), \
@@ -130,24 +126,24 @@ audit:
 # 2. Orchestration Commands (root-level, talk to Docker Compose)
 # =============================================================================
 
-## up            — Start the whole stack in the background.
+## up            - Start the whole stack in the background.
 up:
 	@printf "$(YELLOW)🚀 Starting the stack...$(NC)\n"
 	@$(DOCKER_COMPOSE) up -d
 	@printf "$(GREEN)✅ Up. Dashboard: http://localhost:$${DASHBOARD_PORT:-5173}\n"
 	@printf "   Orders API: http://localhost:$${ORDER_SERVICE_PORT:-8000}/docs$(NC)\n"
 
-## down          — Stop the stack and remove containers (volumes are kept).
+## down          - Stop the stack and remove containers (volumes are kept).
 down:
 	@printf "$(YELLOW)🛑 Stopping the stack...$(NC)\n"
 	@$(DOCKER_COMPOSE) down
 
-## restart       — Recreate every container without rebuilding images.
+## restart       - Recreate every container without rebuilding images.
 restart:
 	@printf "$(YELLOW)🔄 Recreating containers...$(NC)\n"
 	@$(DOCKER_COMPOSE) up -d --force-recreate
 
-## fresh         — Destroy volumes, rebuild images and start from an empty database.
+## fresh         - Destroy volumes, rebuild images and start from an empty database.
 fresh:
 	@printf "$(RED)🧨 Removing containers and volumes (all local demo data)...$(NC)\n"
 	@$(DOCKER_COMPOSE) down -v
@@ -155,22 +151,22 @@ fresh:
 	@$(DOCKER_COMPOSE) up -d
 	@printf "$(GREEN)✅ Clean stack is up.$(NC)\n"
 
-## ps            — List running containers (all services).
+## ps            - List running containers (all services).
 ps:
 	$(DOCKER_COMPOSE) ps
 
-## logs          — Stream logs for a service. Usage: make logs [service=order-service]
+## logs          - Stream logs for a service. Usage: make logs [service=order-service]
 logs:
 	@TARGET=$(service); \
 	$(DOCKER_COMPOSE) logs -f $$TARGET
 
-## shell         — Open a shell in a running container. Usage: make shell [service=order-service]
+## shell         - Open a shell in a running container. Usage: make shell [service=order-service]
 shell:
 	@TARGET=$(service); \
 	$(DOCKER_COMPOSE) exec -it $$TARGET /bin/bash 2>/dev/null || \
 	$(DOCKER_COMPOSE) exec -it $$TARGET /bin/sh
 
-## migrate       — Apply pending Alembic migrations in both services.
+## migrate       - Apply pending Alembic migrations in both services.
 migrate:
 	@printf "$(YELLOW)🔄 Applying migrations...$(NC)\n"
 	@$(DOCKER_COMPOSE) exec order-service alembic upgrade head
@@ -181,24 +177,24 @@ migrate:
 # 3. Demo & observability
 # =============================================================================
 
-## demo          — Seed products, fire duplicates, simulate an outage and catch-up.
+## demo          - Seed products, fire duplicates, simulate an outage and catch-up.
 demo:
-	@printf "$(YELLOW)🎬 Running the full demo (seed → duplicates → outage → catch-up)...$(NC)\n"
+	@printf "$(YELLOW)🎬 Running the full demo (seed -> duplicates -> outage -> catch-up)...$(NC)\n"
 	@$(DEMO_PY) scripts/demo.py
 
-## demo-fast     — Duplicate burst only (no stop/start of the warehouse).
+## demo-fast     - Duplicate burst only (no stop/start of the warehouse).
 demo-fast:
 	@$(DEMO_PY) scripts/demo.py --no-outage
 
-## seed          — Upsert the demo products and exit.
+## seed          - Upsert the demo products and exit.
 seed:
 	@$(DEMO_PY) scripts/demo.py --seed-only
 
-## events        — Print order/stock events from RabbitMQ (Option A consumer).
+## events        - Print order/stock events from RabbitMQ (Option A consumer).
 events:
 	@$(EVENTS_PY) scripts/consume_events.py
 
-## dashboard     — Print the dashboard and API URLs.
+## dashboard     - Print the dashboard and API URLs.
 dashboard:
 	@printf "\n$(GREEN)Dashboard :$(NC) http://localhost:$${DASHBOARD_PORT:-5173}\n"
 	@printf "$(GREEN)Order API :$(NC) http://localhost:$${ORDER_SERVICE_PORT:-8000}/docs\n"
@@ -211,13 +207,13 @@ dashboard:
 
 # --- Build a single service via docker compose (root context) ---
 
-## build-warehouse-service  — Build only the warehouse service image.
+## build-warehouse-service  - Build only the warehouse service image.
 build-warehouse-service:
 	@printf "$(YELLOW)🚀 Building Warehouse Service (ENV=$(ENV))...$(NC)\n"
 	$(DOCKER_COMPOSE) build warehouse-service
 	@printf "$(GREEN)✅ Warehouse Service Docker image built successfully!$(NC)\n"
 
-## build-order-service      — Build only the order service image.
+## build-order-service      - Build only the order service image.
 build-order-service:
 	@printf "$(YELLOW)🚀 Building Order Service (ENV=$(ENV))...$(NC)\n"
 	$(DOCKER_COMPOSE) build order-service

@@ -112,7 +112,7 @@ curl -s -X POST localhost:8000/orders \
 | `make build` / `make build-fast` | Build images (sequentially / with `make -j build-fast`) |
 | `make up` / `make down` / `make restart` | Start / stop / recreate the stack |
 | `make fresh` | Drop volumes, rebuild and start with an empty database |
-| `make demo` | Full demo: seed → duplicate burst → outage → catch-up |
+| `make demo` | Full demo: seed -> duplicate burst -> age -> catch-up |
 | `make demo-fast` | Duplicate burst only |
 | `make seed` | Seed the demo products |
 | `make events` | Print the event feed from RabbitMQ |
@@ -130,16 +130,16 @@ Each service also has its own `Makefile` under `services/<name>/`.
 The React control room (see `services/dashboard/README.md`) visualises:
 
 - the service topology with animated request/event packets,
-- a **burst panel** to fire 1–50 real order submissions, with toggles to reuse one
-  `order_ref` and/or one idempotency key — every response lands as a chip with its
+- a **burst panel** to fire 1-50 real order submissions, with toggles to reuse one
+  `order_ref` and/or one idempotency key - very response lands as a chip with its
   latency and status,
-- orders and their PENDING → CONFIRMED transitions,
+- orders and their PENDING -> CONFIRMED transitions,
 - stock levels per SKU,
 - per-service state, health, start/stop/restart buttons and a live log stream.
 
 ## Layout
 
-```
+```markdown
 services/
   order/          order intake, pricing, idempotency, status API, migrations, tests
   warehouse/      catalogue, stock allocation consumer, migrations

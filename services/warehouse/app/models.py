@@ -19,12 +19,7 @@ class ProductInventoryDB(Base):
 
 
 class ProcessedOrderDB(Base):
-    """Ledger of handled ``order.placed`` events, keyed by the order reference.
-
-    RabbitMQ delivers at least once, and the outbox deliberately republishes after
-    an uncertain failure. Claiming the reference here, in the same transaction as
-    the stock deduction, guarantees an order is never allocated twice.
-    """
+    """Ledger of handled ``order.placed`` events, keyed by the order reference."""
 
     __tablename__ = "processed_orders"
 
